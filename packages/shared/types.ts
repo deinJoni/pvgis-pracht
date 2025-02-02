@@ -128,4 +128,186 @@ export enum PVGISEndpoint {
 
 // API Base URL
 export const PVGIS_API_BASE_URL = 'https://re.jrc.ec.europa.eu/api/v5_3';
+
+// PVGIS PV Calculation Response Types
+export type PVGISLocation = {
+  latitude: number;
+  longitude: number;
+  elevation: number;
+};
+
+export type PVGISMeteoData = {
+  radiation_db: string;
+  meteo_db: string;
+  year_min: number;
+  year_max: number;
+  use_horizon: boolean;
+  horizon_db: string;
+};
+
+export type PVGISMountingSystem = {
+  fixed: {
+    slope: {
+      value: number;
+      optimal: boolean;
+    };
+    azimuth: {
+      value: number;
+      optimal: boolean;
+    };
+    type: 'free-standing' | 'building-integrated';
+  };
+};
+
+export type PVGISPVModule = {
+  technology: string;
+  peak_power: number;
+  system_loss: number;
+};
+
+export type PVGISEconomicData = {
+  system_cost: number;
+  interest: number;
+  lifetime: number;
+};
+
+export type PVGISMonthlyData = {
+  month: number;
+  E_d: number;      // Average daily energy production (kWh/d)
+  E_m: number;      // Average monthly energy production (kWh/mo)
+  'H(i)_d': number; // Average daily sum of global irradiation (kWh/m2/d)
+  'H(i)_m': number; // Average monthly sum of global irradiation (kWh/m2/mo)
+  SD_m: number;     // Standard deviation of monthly production (kWh)
+};
+
+export type PVGISTotals = {
+  E_d: number;      // Average daily energy production (kWh/d)
+  E_m: number;      // Average monthly energy production (kWh/mo)
+  E_y: number;      // Average annual energy production (kWh/y)
+  'H(i)_d': number; // Average daily sum of global irradiation (kWh/m2/d)
+  'H(i)_m': number; // Average monthly sum of global irradiation (kWh/m2/mo)
+  'H(i)_y': number; // Average annual sum of global irradiation (kWh/m2/y)
+  SD_m: number;     // Standard deviation of monthly production (kWh)
+  SD_y: number;     // Standard deviation of annual production (kWh)
+  l_aoi: number;    // Angle of incidence loss (%)
+  l_spec: string;   // Spectral loss (%)
+  l_tg: number;     // Temperature and irradiance loss (%)
+  l_total: number;  // Total loss (%)
+  LCOE_pv: number;  // Levelized cost of electricity (currency/kWh)
+};
+
+export type PVGISMetaVariable = {
+  description: string;
+  units?: string;
+};
+
+export type PVGISMetaLocationVariables = {
+  latitude: PVGISMetaVariable;
+  longitude: PVGISMetaVariable;
+  elevation: PVGISMetaVariable;
+};
+
+export type PVGISMetaMeteoDataVariables = {
+  radiation_db: PVGISMetaVariable;
+  meteo_db: PVGISMetaVariable;
+  year_min: PVGISMetaVariable;
+  year_max: PVGISMetaVariable;
+  use_horizon: PVGISMetaVariable;
+  horizon_db: PVGISMetaVariable;
+};
+
+export type PVGISMetaMountingSystemFields = {
+  slope: PVGISMetaVariable;
+  azimuth: PVGISMetaVariable;
+};
+
+export type PVGISMetaPVModuleVariables = {
+  technology: PVGISMetaVariable;
+  peak_power: PVGISMetaVariable;
+  system_loss: PVGISMetaVariable;
+};
+
+export type PVGISMetaEconomicDataVariables = {
+  system_cost: PVGISMetaVariable;
+  interest: PVGISMetaVariable;
+  lifetime: PVGISMetaVariable;
+};
+
+export type PVGISMetaMonthlyVariables = {
+  E_d: PVGISMetaVariable;
+  E_m: PVGISMetaVariable;
+  'H(i)_d': PVGISMetaVariable;
+  'H(i)_m': PVGISMetaVariable;
+  SD_m: PVGISMetaVariable;
+};
+
+export type PVGISMetaTotalsVariables = {
+  E_d: PVGISMetaVariable;
+  E_m: PVGISMetaVariable;
+  E_y: PVGISMetaVariable;
+  'H(i)_d': PVGISMetaVariable;
+  'H(i)_m': PVGISMetaVariable;
+  'H(i)_y': PVGISMetaVariable;
+  SD_m: PVGISMetaVariable;
+  SD_y: PVGISMetaVariable;
+  l_aoi: PVGISMetaVariable;
+  l_spec: PVGISMetaVariable;
+  l_tg: PVGISMetaVariable;
+  l_total: PVGISMetaVariable;
+  LCOE_pv: PVGISMetaVariable;
+};
+
+export type PVGISCalcResponse = {
+  inputs: {
+    location: PVGISLocation;
+    meteo_data: PVGISMeteoData;
+    mounting_system: PVGISMountingSystem;
+    pv_module: PVGISPVModule;
+    economic_data: PVGISEconomicData;
+  };
+  outputs: {
+    monthly: {
+      fixed: PVGISMonthlyData[];
+    };
+    totals: {
+      fixed: PVGISTotals;
+    };
+  };
+  meta: {
+    inputs: {
+      location: {
+        description: string;
+        variables: PVGISMetaLocationVariables;
+      };
+      meteo_data: {
+        description: string;
+        variables: PVGISMetaMeteoDataVariables;
+      };
+      mounting_system: {
+        description: string;
+        choices: string;
+        fields: PVGISMetaMountingSystemFields;
+      };
+      pv_module: {
+        description: string;
+        variables: PVGISMetaPVModuleVariables;
+      };
+      economic_data: {
+        description: string;
+        variables: PVGISMetaEconomicDataVariables;
+      };
+    };
+    outputs: {
+      monthly: {
+        type: string;
+        timestamp: string;
+        variables: PVGISMetaMonthlyVariables;
+      };
+      totals: {
+        type: string;
+        variables: PVGISMetaTotalsVariables;
+      };
+    };
+  };
+};
   
