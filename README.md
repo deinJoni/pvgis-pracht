@@ -211,6 +211,139 @@ enum PVGISEndpoint {
 
 The base URL for all API endpoints is: `https://re.jrc.ec.europa.eu/api/v5_3`
 
+## Server API Endpoints
+
+### POST /api/pv-calc
+
+Calculates PV system performance by forwarding requests to the PVGIS API. The endpoint accepts all parameters supported by the PVGIS PVcalc API and returns the results in a standardized format.
+
+#### Example Request Payload:
+
+```json
+{
+  "lat": 47.37,              // Latitude of Zurich
+  "lon": 8.55,               // Longitude of Zurich
+  "peakpower": 5.0,          // 5 kW system
+  "loss": 14,                // 14% system losses
+  "pvtechchoice": "crystSi", // Crystalline Silicon technology
+  "mountingplace": "building", // Building-integrated mounting
+  "angle": 35,               // 35° tilt angle
+  "aspect": 0,               // South-facing (0° = South)
+  "raddatabase": "PVGIS-ERA5", // ERA5 radiation database
+  "usehorizon": 1,           // Consider horizon shadows
+  "optimalinclination": 0,   // Don't calculate optimal inclination
+  "optimalangles": 0,        // Don't calculate optimal angles
+  "fixed": 1,                // Fixed mounting system
+  "pvprice": 1,              // Calculate PV electricity price
+  "systemcost": 6000,        // System cost in currency units
+  "interest": 2.5,           // 2.5% annual interest rate
+  "lifetime": 25             // 25 years system lifetime
+}
+```
+
+#### Response Format:
+
+```typescript
+type PVGISResponse<T> = {
+  status: 'success' | 'error';
+  data?: T;              // Present when status is 'success'
+  message?: string;      // Present when status is 'error'
+}
+```
+
+On success, the response data contains three main sections:
+
+1. `inputs`: Contains the processed input parameters
+   ```typescript
+   {
+     location: {
+       latitude: number;      // Decimal degrees
+       longitude: number;     // Decimal degrees
+       elevation: number;     // Meters
+     };
+     meteo_data: {
+       radiation_db: string;  // Solar radiation database used
+       meteo_db: string;     // Meteorological database used
+       year_min: number;     // First year of calculations
+       year_max: number;     // Last year of calculations
+       use_horizon: boolean; // Whether horizon shadows were included
+       horizon_db: string;   // Source of horizon data
+     };
+     mounting_system: {
+       fixed?: {            // Present for fixed mounting systems
+         slope: {
+           value: number;   // Degrees from horizontal
+           optimal: boolean;
+         };
+         azimuth: {
+           value: number;   // Degrees (0=S, 90=W, -90=E)
+           optimal: boolean;
+         };
+         type: string;     // e.g., "building-integrated"
+       };
+     };
+     pv_module: {
+       technology: string;  // e.g., "c-Si"
+       peak_power: number; // Nominal power in kW
+       system_loss: number; // System losses in %
+     };
+     economic_data?: {     // Present if economic calculation requested
+       system_cost: number;
+       interest: number;   // Annual interest rate in %
+       lifetime: number;   // System lifetime in years
+     };
+   }
+   ```
+
+2. `outputs`: Contains the calculation results
+   ```typescript
+   {
+     monthly: {
+       fixed: Array<{      // Monthly averages
+         month: number;    // 1-12
+         E_d: number;     // Daily energy production (kWh/day)
+         E_m: number;     // Monthly energy production (kWh/month)
+         H(i)_d: number;  // Daily irradiation on modules (kWh/m²/day)
+         H(i)_m: number;  // Monthly irradiation on modules (kWh/m²/month)
+         SD_m: number;    // Standard deviation of monthly production (kWh)
+       }>;
+     };
+     totals: {
+       fixed: {           // Yearly totals and averages
+         E_d: number;     // Average daily energy production (kWh/day)
+         E_m: number;     // Average monthly energy production (kWh/month)
+         E_y: number;     // Average yearly energy production (kWh/year)
+         H(i)_d: number;  // Average daily irradiation (kWh/m²/day)
+         H(i)_m: number;  // Average monthly irradiation (kWh/m²/month)
+         H(i)_y: number;  // Average yearly irradiation (kWh/m²/year)
+         SD_m: number;    // Monthly production standard deviation (kWh)
+         SD_y: number;    // Yearly production standard deviation (kWh)
+         l_aoi: number;   // Angle of incidence losses (%)
+         l_spec: string;  // Spectral losses (%)
+         l_tg: number;    // Temperature and irradiance losses (%)
+         l_total: number; // Total losses (%)
+         LCOE_pv?: number; // Levelized cost of electricity (currency/kWh)
+       };
+     };
+   }
+   ```
+
+3. `meta`: Contains descriptions and units for all input and output fields
+   ```typescript
+   {
+     inputs: {
+       // Detailed descriptions of all input parameters
+       // Including units and valid ranges
+     };
+     outputs: {
+       // Detailed descriptions of all output parameters
+       // Including units and calculation methods
+     };
+   }
+   ```
+
+The response data structure follows the PVGIS API response format when successful, or includes an error message when the request fails.
+
 ## License
 
 ISC 
