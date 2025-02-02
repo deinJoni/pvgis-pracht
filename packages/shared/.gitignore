@@ -1,0 +1,24 @@
+# Build output
+dist
+build
+
+# Dependencies
+node_modules
+
+# TypeScript
+*.tsbuildinfo
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Cache
+.cache
+.temp 
