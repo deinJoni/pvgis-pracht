@@ -10,48 +10,45 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Info, Loader2 } from "lucide-react"
+import { PVGISResultsDialog } from "@/components/pvgis-results-dialog"
 
 const formSchema = z.object({
-    address: z.string(),
-    lat: z.number().min(-90).max(90),
-    lon: z.number().min(-180).max(180),
-    peakpower: z.number().positive(),
-    loss: z.number().min(0).max(100),
-    pvtechchoice: z.enum(["crystSi", "CIS", "CdTe", "polySi"]),
-    mountingplace: z.enum(["building", "free"]),
-    angle: z.number().min(0).max(90),
-    aspect: z.number().min(-180).max(180),
-    raddatabase: z.enum(["PVGIS-SARAH3", "PVGIS-ERA5"]),
-    usehorizon: z.boolean(),
-    optimalinclination: z.boolean(),
-    optimalangles: z.boolean(),
-    pvprice: z.boolean(),
-    systemcost: z.number().positive(),
-    interest: z.number().min(0).max(100),
-    lifetime: z.number().int().min(1).max(50),
+    address: z.string().min(1, "Address is required"),
+    peakpower: z.coerce.number().min(0.1).default(1),
+    loss: z.coerce.number().min(-100).max(100).default(14),
+    pvtechchoice: z.string().default("crystSi"),
+    mountingplace: z.string().default("free"),
+    angle: z.coerce.number().min(0).max(90).default(35),
+    aspect: z.coerce.number().min(-180).max(180).default(0),
+    usehorizon: z.boolean().default(true),
+    optimalinclination: z.boolean().default(false),
+    optimalangles: z.boolean().default(false),
+    pvprice: z.boolean().default(false),
+    systemcost: z.coerce.number().optional(),
+    interest: z.coerce.number().optional(),
+    lifetime: z.coerce.number().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
 
 export default function GridConnectedForm() {
     const [isLoading, setIsLoading] = useState(false);
+    const [resultsOpen, setResultsOpen] = useState(false);
+    const [results, setResults] = useState<any>(null);
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
             address: "",
-            lat: 47.37,
-            lon: 8.55,
             peakpower: 5.0,
             loss: 14,
             pvtechchoice: "crystSi",
             mountingplace: "building",
             angle: 35,
             aspect: 0,
-            raddatabase: "PVGIS-ERA5",
-            usehorizon: true,
+            usehorizon: false,
             optimalinclination: false,
             optimalangles: false,
-            pvprice: true,
+            pvprice: false,
             systemcost: 6000,
             interest: 2.5,
             lifetime: 25,
@@ -69,23 +66,84 @@ export default function GridConnectedForm() {
     }, []);
     */
 
-    const onSubmit = (data: FormValues) => {
-        console.log("submitted")
-        const jsonOutput = {
-            ...data,
-            usehorizon: data.usehorizon ? 1 : 0,
-            optimalinclination: data.optimalinclination ? 1 : 0,
-            optimalangles: data.optimalangles ? 1 : 0,
-            // Only include price-related fields if pvprice is true
-            ...(data.pvprice ? {
-                systemcost: data.systemcost,
-                interest: data.interest,
-                lifetime: data.lifetime,
-            } : {})
-        }
-        console.log(JSON.stringify(jsonOutput, null, 2))
+    const onSubmit = async (data: FormValues) => {
+        try {
+            setIsLoading(true);
+            
+            // First get coordinates from address
+            const geoResponse = await fetch(`https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(data.address)}&apiKey=${import.meta.env.VITE_GEOAPIFY_API_KEY}`)
+            const geoData = await geoResponse.json()
+            
+            if (!geoData.features || geoData.features.length < 1) {
+                throw new Error("No location found for this address")
+            }
+            
+            const location = geoData.features[0]
+            const lon = location.properties.lon
+            const lat = location.properties.lat
+            const formattedAddress = location.properties.formatted
 
-        // Here you would typically send this data to your API
+            const jsonOutput = {
+                lat,
+                lon,
+                peakpower: form.getValues("peakpower"),
+                loss: form.getValues("loss"),
+                pvtechchoice: form.getValues("pvtechchoice"),
+                mountingplace: form.getValues("mountingplace"),
+                angle: form.getValues("angle"),
+                aspect: form.getValues("aspect"),
+                raddatabase: "PVGIS-SARAH3",
+                usehorizon: form.getValues("usehorizon") ? 1 : 0,
+                optimalinclination: form.getValues("optimalinclination") ? 1 : 0,
+                optimalangles: form.getValues("optimalangles") ? 1 : 0,
+                pvprice: form.getValues("pvprice") ? 1 : 0,
+                ...(form.getValues("pvprice") ? {
+                    systemcost: form.getValues("systemcost"),
+                    interest: form.getValues("interest"),
+                    lifetime: form.getValues("lifetime"),
+                } : {})
+            }
+            console.log(jsonOutput)
+            const response = await fetch("http://localhost:3000/api/pv-calc", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(jsonOutput),
+            })
+            const res = await response.json()
+            console.log('API Response:', res)
+            
+            if (res.status === 'error') {
+                throw new Error(res.message)
+            }
+            
+            // Add the formatted address to the results
+            if (res.data && res.data.inputs && res.data.inputs.location) {
+                res.data.inputs.location.address = formattedAddress;
+            } else {
+                // If the response structure is different, create it
+                res.data = {
+                    ...res.data,
+                    inputs: {
+                        ...res.data?.inputs,
+                        location: {
+                            address: formattedAddress,
+                            latitude: lat,
+                            longitude: lon
+                        }
+                    }
+                };
+            }
+            
+            setResults(res);
+            setResultsOpen(true);
+        } catch (error) {
+            console.error(error)
+            // You might want to show this error in the UI
+        } finally {
+            setIsLoading(false);
+        }
     }
     
     /*
@@ -100,151 +158,69 @@ export default function GridConnectedForm() {
     }
     */
 
-    const fetchLocation = async () => {
-        try {
-            setIsLoading(true);
-            const response = await fetch(`https://api.geoapify.com/v1/geocode/search?text=${form.getValues("address")}&apiKey=${import.meta.env.VITE_GEOAPIFY_API_KEY}`)
-            const data = await response.json()
-            console.log(data)
-            
-            if (!data.features || data.features.length < 1) {
-                throw new Error("No location found for this address")
-            }
-            
-            const lon = data.features[0].properties.lon
-            const lat = data.features[0].properties.lat
-            
-            form.setValue("lon", lon)
-            form.setValue("lat", lat)
-        } catch (error) {
-            console.error(error)
-            // You might want to show this error in the UI
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
     return (
         <TooltipProvider>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                    <div className="flex flex-row gap-2">
-                        <div className="w-3/4">
-                            <FormField
-                                control={form.control}
-                                name="address"
+                    <FormField
+                        control={form.control}
+                        name="address"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Address</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        {...field}
+                                        placeholder="Enter full address"
+                                    />
+                                </FormControl>
+                                <FormDescription>Enter a complete address (e.g., street, city, country)</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                            control={form.control}
+                            name="peakpower"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Address</FormLabel>
+                                    <FormLabel>Installed PV Power (kWp)</FormLabel>
                                     <FormControl>
                                         <Input
+                                            type="number"
+                                            step="0.1"
                                             {...field}
-                                            onChange={(e) => field.onChange(e.target.value)}
+                                            onChange={(e) => field.onChange(Number.parseFloat(e.target.value))}
                                         />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
-                        </div>
-                        <Button className="mt-8 w-1/4" type="button" onClick={fetchLocation}>Fetch Location</Button>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField
                             control={form.control}
-                            name="lat"
+                            name="loss"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Latitude</FormLabel>
+                                    <FormLabel>System Loss (%)</FormLabel>
                                     <FormControl>
-                                        <div className="relative">
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="47.37"
-                                                {...field}
-                                                onChange={(e) => field.onChange(Number.parseFloat(e.target.value))}
-                                                disabled={isLoading}
-                                            />
-                                            {isLoading && (
-                                                <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3" />
-                                            )}
-                                        </div>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.1"
+                                            {...field}
+                                            onChange={(e) => field.onChange(Number.parseFloat(e.target.value))}
+                                        />
                                     </FormControl>
-                                    <FormDescription>Example: 47.37 for Zurich</FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="lon"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Longitude</FormLabel>
-                                    <FormControl>
-                                        <div className="relative">
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="8.55"
-                                                {...field}
-                                                onChange={(e) => field.onChange(Number.parseFloat(e.target.value))}
-                                                disabled={isLoading}
-                                            />
-                                            {isLoading && (
-                                                <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3" />
-                                            )}
-                                        </div>
-                                    </FormControl>
-                                    <FormDescription>Example: 8.55 for Zurich</FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
                     </div>
-
-                    <FormField
-                        control={form.control}
-                        name="peakpower"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Installed PV Power (kWp)</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="number"
-                                        step="0.1"
-                                        placeholder="5.0"
-                                        {...field}
-                                        onChange={(e) => field.onChange(Number.parseFloat(e.target.value))}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="loss"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>System Loss (%)</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="0.1"
-                                        {...field}
-                                        onChange={(e) => field.onChange(Number.parseFloat(e.target.value))}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
 
                     <FormField
                         control={form.control}
@@ -262,7 +238,7 @@ export default function GridConnectedForm() {
                                         <SelectItem value="crystSi">Crystalline Silicon</SelectItem>
                                         <SelectItem value="CIS">Thin Film CIS</SelectItem>
                                         <SelectItem value="CdTe">Thin Film CdTe</SelectItem>
-                                        <SelectItem value="polySi">Polycrystalline Silicon</SelectItem>
+                                        <SelectItem value="Unknown">Unknown</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -401,28 +377,6 @@ export default function GridConnectedForm() {
                         />
                     </div>
 
-                    <FormField
-                        control={form.control}
-                        name="raddatabase"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Solar Radiation Database</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select Solar Radiation Database" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="PVGIS-SARAH3">PVGIS-SARAH3</SelectItem>
-                                        <SelectItem value="PVGIS-ERA5">PVGIS-ERA5</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <FormField
                             control={form.control}
@@ -521,9 +475,25 @@ export default function GridConnectedForm() {
                         </div>
                     )}
 
-                    <Button type="submit">Submit</Button>
+                    <Button type="submit" disabled={isLoading}>
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Calculating...
+                            </>
+                        ) : (
+                            'Calculate'
+                        )}
+                    </Button>
                 </form>
             </Form>
+            {results && (
+                <PVGISResultsDialog
+                    isOpen={resultsOpen}
+                    onOpenChange={setResultsOpen}
+                    results={results}
+                />
+            )}
         </TooltipProvider>
     )
 }
