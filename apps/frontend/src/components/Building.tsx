@@ -109,34 +109,34 @@ export default function Building({ width, depth, height, roofAngle = 20 }: Build
           <primitive object={flatRoofGeometry} attach="geometry" />
           <meshStandardMaterial color="#C35A38" />
         </mesh>
-      ) : (
+      ) : roofParts ? (
         // Pitched roof with individual parts
         <group position={[0, height, 0]}>
           {/* Front face */}
           <mesh castShadow>
-            <primitive object={roofParts?.front} attach="geometry" />
+            <primitive object={roofParts.front} attach="geometry" />
             <meshStandardMaterial color="#C35A38" side={THREE.DoubleSide} />
           </mesh>
           
           {/* Back face */}
           <mesh castShadow>
-            <primitive object={roofParts?.back} attach="geometry" />
+            <primitive object={roofParts.back} attach="geometry" />
             <meshStandardMaterial color="#C35A38" side={THREE.DoubleSide} />
           </mesh>
           
           {/* Left side */}
           <mesh castShadow>
-            <primitive object={roofParts?.left} attach="geometry" />
+            <primitive object={roofParts.left} attach="geometry" />
             <meshStandardMaterial color="#C35A38" side={THREE.DoubleSide} />
           </mesh>
           
           {/* Right side */}
           <mesh castShadow>
-            <primitive object={roofParts?.right} attach="geometry" />
+            <primitive object={roofParts.right} attach="geometry" />
             <meshStandardMaterial color="#C35A38" side={THREE.DoubleSide} />
           </mesh>
         </group>
-      )}
+      ) : null}
       
       {/* Width dimension label */}
       <Html position={[width / 2, -0.5, depth + 1]}>
