@@ -1,4 +1,4 @@
-import { Link, Outlet } from "react-router";
+import { Link, Outlet } from "react-router-dom";
 
 
 export default function Layout() {
@@ -19,6 +19,9 @@ export default function Layout() {
                             </Link>
                             <Link to="/off-grid-pv" className="transition-colors hover:text-primary">
                                 Netzunabhängig
+                            </Link>
+                            <Link to="/building-visualization" className="transition-colors hover:text-primary">
+                                Building Visualization
                             </Link>
                         </nav>
                     </div>
