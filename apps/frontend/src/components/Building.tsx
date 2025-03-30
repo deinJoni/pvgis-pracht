@@ -8,9 +8,16 @@ interface BuildingProps {
   depth: number
   height: number
   roofAngle: number
+  hideLabels?: boolean
 }
 
-export default function Building({ width, depth, height, roofAngle = 20 }: BuildingProps) {
+export default function Building({ 
+  width, 
+  depth, 
+  height, 
+  roofAngle = 20,
+  hideLabels = false 
+}: BuildingProps) {
   const buildingRef = useRef<THREE.Group>(null)
   
   // Calculate roof height based on angle
@@ -138,69 +145,74 @@ export default function Building({ width, depth, height, roofAngle = 20 }: Build
         </group>
       ) : null}
       
-      {/* Width dimension label */}
-      <Html position={[width / 2, -0.5, depth + 1]}>
-        <div className="label" style={{ 
-          color: 'black', 
-          backgroundColor: 'white', 
-          padding: '4px 8px', 
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          border: '1px solid #aaa',
-          whiteSpace: 'nowrap'
-        }}>
-          Width: {width}m
-        </div>
-      </Html>
-      
-      {/* Depth dimension label */}
-      <Html position={[width + 1, -0.5, depth / 2]}>
-        <div className="label" style={{ 
-          color: 'black', 
-          backgroundColor: 'white', 
-          padding: '4px 8px', 
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          border: '1px solid #aaa',
-          whiteSpace: 'nowrap'
-        }}>
-          Depth: {depth}m
-        </div>
-      </Html>
-      
-      {/* Height dimension label */}
-      <Html position={[-1, height / 2, depth / 2]}>
-        <div className="label" style={{ 
-          color: 'black', 
-          backgroundColor: 'white', 
-          padding: '4px 8px', 
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          border: '1px solid #aaa',
-          whiteSpace: 'nowrap'
-        }}>
-          Height: {height}m
-        </div>
-      </Html>
-      
-      {/* Roof angle label */}
-      <Html position={[width / 2, height + (roofAngle > 0 ? roofHeight : 0.5) + 0.5, depth / 2]}>
-        <div className="label" style={{ 
-          color: 'black', 
-          backgroundColor: 'white', 
-          padding: '4px 8px', 
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          border: '1px solid #aaa',
-          whiteSpace: 'nowrap'
-        }}>
-          Roof: {roofAngle}°
-        </div>
-      </Html>
+      {/* Only render labels if hideLabels is false */}
+      {!hideLabels && (
+        <>
+          {/* Width dimension label */}
+          <Html position={[width / 2, -0.5, depth + 1]}>
+            <div className="label" style={{ 
+              color: 'black', 
+              backgroundColor: 'white', 
+              padding: '4px 8px', 
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              border: '1px solid #aaa',
+              whiteSpace: 'nowrap'
+            }}>
+              Width: {width}m
+            </div>
+          </Html>
+          
+          {/* Depth dimension label */}
+          <Html position={[width + 1, -0.5, depth / 2]}>
+            <div className="label" style={{ 
+              color: 'black', 
+              backgroundColor: 'white', 
+              padding: '4px 8px', 
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              border: '1px solid #aaa',
+              whiteSpace: 'nowrap'
+            }}>
+              Depth: {depth}m
+            </div>
+          </Html>
+          
+          {/* Height dimension label */}
+          <Html position={[-1, height / 2, depth / 2]}>
+            <div className="label" style={{ 
+              color: 'black', 
+              backgroundColor: 'white', 
+              padding: '4px 8px', 
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              border: '1px solid #aaa',
+              whiteSpace: 'nowrap'
+            }}>
+              Height: {height}m
+            </div>
+          </Html>
+          
+          {/* Roof angle label */}
+          <Html position={[width / 2, height + (roofAngle > 0 ? roofHeight : 0.5) + 0.5, depth / 2]}>
+            <div className="label" style={{ 
+              color: 'black', 
+              backgroundColor: 'white', 
+              padding: '4px 8px', 
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              border: '1px solid #aaa',
+              whiteSpace: 'nowrap'
+            }}>
+              Roof: {roofAngle}°
+            </div>
+          </Html>
+        </>
+      )}
     </group>
   )
 } 
