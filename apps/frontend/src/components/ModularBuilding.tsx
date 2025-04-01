@@ -1,19 +1,34 @@
-import React, { useRef, Dispatch, SetStateAction, useEffect } from 'react';
+import React, { useRef, Dispatch, SetStateAction, useEffect, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import Building from './Building'; // Assuming this path is correct
+import { ThreeEvent } from '@react-three/fiber';
 
 // --- Interfaces (Copied for self-containment) --- 
 interface BuildingPart { width: number; depth: number; height: number; roofAngle: number; }
 interface WingConfig extends BuildingPart { position: [number, number, number]; }
 interface ChimneyConfig { position: [number, number, number]; width: number; depth: number; height: number; }
 interface DormerConfig { position: [number, number, number]; width: number; depth: number; height: number; }
+interface PVTileConfig { 
+  position: [number, number, number]; 
+  rotation: [number, number, number];
+  roofFace: 'front' | 'back' | 'left' | 'right';
+  width: number;
+  depth: number;
+}
+
 // Export BuildingConfig so it can be imported by the scene
-export interface BuildingConfig { base: BuildingPart; wings?: WingConfig[]; chimneys?: ChimneyConfig[]; dormers?: DormerConfig[]; }
+export interface BuildingConfig { 
+  base: BuildingPart; 
+  wings?: WingConfig[]; 
+  chimneys?: ChimneyConfig[]; 
+  dormers?: DormerConfig[];
+  pvTiles?: PVTileConfig[];
+}
 
 // Define props type for child components (Chimney, Dormer)
 interface ChildComponentProps {
-  config: ChimneyConfig | DormerConfig;
+  config: ChimneyConfig | DormerConfig | PVTileConfig;
   index: number;
   setSelectedObject: Dispatch<SetStateAction<THREE.Object3D | null>>;
   selectedObject: THREE.Object3D | null;
@@ -151,18 +166,73 @@ function Dormer({ config, index, setSelectedObject, selectedObject }: ChildCompo
   );
 }
 
+// PV Tile component
+function PVTile({ config, index, setSelectedObject, isSelected, onClick }: {
+  config: PVTileConfig; 
+  index: number;
+  setSelectedObject: (obj: THREE.Object3D | null) => void;
+  isSelected?: boolean;
+  onClick?: (index: number) => void;
+}) {
+  const { position, rotation, width, depth } = config;
+  const originalColor = new THREE.Color(0x2196f3); // Blue color for solar panels
+  const highlightColor = new THREE.Color(0x64b5f6); // Lighter blue when selected
+  
+  // Use refs for the mesh
+  const meshRef = useRef<THREE.Mesh>(null);
+  
+  // Set userData when mesh is created
+  useEffect(() => {
+    if (meshRef.current) {
+      meshRef.current.userData = { type: 'pvtile', index };
+    }
+  }, [index]);
+  
+  // Handle click
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    if (meshRef.current) {
+      setSelectedObject(meshRef.current);
+      if (onClick) onClick(index);
+    }
+  };
+  
+  return (
+    <mesh 
+      ref={meshRef}
+      position={new THREE.Vector3(position[0], position[1], position[2])}
+      rotation={new THREE.Euler(rotation[0], rotation[1], rotation[2])}
+      onClick={handleClick}
+    >
+      <boxGeometry args={[width, 0.02, depth]} />
+      <meshStandardMaterial 
+        color={isSelected ? highlightColor : originalColor} 
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+}
+
 // --- ModularBuilding Component --- 
 interface ModularBuildingProps {
   config: BuildingConfig;
   setSelectedObject: Dispatch<SetStateAction<THREE.Object3D | null>>;
   selectedObject: THREE.Object3D | null;
+  onRoofClick?: (point: THREE.Vector3, face: 'front' | 'back' | 'left' | 'right') => void;
+  selectedPVTileIndex?: number | null;
+  onPVTileClick?: (index: number) => void;
 }
 
 export default function ModularBuilding({
   config,
   setSelectedObject,
-  selectedObject
+  selectedObject,
+  onRoofClick,
+  selectedPVTileIndex,
+  onPVTileClick
 }: ModularBuildingProps) {
+  const groupRef = useRef<THREE.Group>(null);
+  
   // Calculate initial position once
   const initialPosition: [number, number, number] = [
     -config.base.width / 2,
@@ -171,8 +241,7 @@ export default function ModularBuilding({
   ];
 
   return (
-    // Set position directly on the group
-    <group position={initialPosition}>
+    <group ref={groupRef} position={initialPosition}>
       {/* Base Building */}
       <Building
         width={config.base.width}
@@ -180,6 +249,7 @@ export default function ModularBuilding({
         height={config.base.height}
         roofAngle={config.base.roofAngle}
         hideLabels={true} // Hide internal labels from Building component
+        onRoofClick={onRoofClick}
       />
 
       {/* Render Chimneys with props for selection */}
@@ -204,9 +274,22 @@ export default function ModularBuilding({
         />
       ))}
 
+      {/* Render PV Tiles */}
+      {config.pvTiles?.map((pvTileConf, index) => (
+        <PVTile
+          key={`pvtile-${index}`}
+          config={pvTileConf}
+          index={index}
+          setSelectedObject={setSelectedObject}
+          isSelected={selectedPVTileIndex === index}
+          onClick={onPVTileClick}
+        />
+      ))}
+
       {/* Wings would be rendered here in future steps */}
       {/* {config.wings?.map((wingConf, index) => { ... })} */}
 
     </group>
   );
 }
+

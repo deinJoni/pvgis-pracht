@@ -8,6 +8,7 @@ interface BuildingProps {
   height: number
   roofAngle: number
   hideLabels?: boolean
+  onRoofClick?: (point: THREE.Vector3, face: 'front' | 'back' | 'left' | 'right') => void
 }
 
 export default function Building({ 
@@ -15,7 +16,8 @@ export default function Building({
   depth, 
   height, 
   roofAngle = 20,
-  hideLabels = false 
+  hideLabels = false,
+  onRoofClick
 }: BuildingProps) {
   const buildingRef = useRef<THREE.Group>(null)
   
@@ -92,6 +94,13 @@ export default function Building({
     }
   }, [width, depth, roofHeight, roofAngle])
 
+  const handleRoofClick = (event: any, face: 'front' | 'back' | 'left' | 'right') => {
+    event.stopPropagation();
+    if (onRoofClick) {
+      onRoofClick(event.point, face);
+    }
+  };
+
   return (
     <group ref={buildingRef}>
       {/* Building body */}
@@ -103,7 +112,12 @@ export default function Building({
       {/* Roof - conditionally render flat or pitched roof */}
       {roofAngle <= 0 ? (
         // Flat roof when angle is 0
-        <mesh position={[width / 2, height + 0.1, depth / 2]} castShadow>
+        <mesh 
+          position={[width / 2, height + 0.1, depth / 2]} 
+          castShadow 
+          name="flatRoof"
+          onClick={(e) => handleRoofClick(e, 'front')}
+        >
           <primitive object={flatRoofGeometry} attach="geometry" />
           <meshStandardMaterial color="#C35A38" />
         </mesh>
@@ -111,25 +125,41 @@ export default function Building({
         // Pitched roof with individual parts
         <group position={[0, height, 0]}>
           {/* Front face */}
-          <mesh castShadow>
+          <mesh 
+            castShadow 
+            name="roofFront"
+            onClick={(e) => handleRoofClick(e, 'front')}
+          >
             <primitive object={roofParts.front} attach="geometry" />
             <meshStandardMaterial color="#C35A38" side={THREE.DoubleSide} />
           </mesh>
           
           {/* Back face */}
-          <mesh castShadow>
+          <mesh 
+            castShadow 
+            name="roofBack"
+            onClick={(e) => handleRoofClick(e, 'back')}
+          >
             <primitive object={roofParts.back} attach="geometry" />
             <meshStandardMaterial color="#C35A38" side={THREE.DoubleSide} />
           </mesh>
           
           {/* Left side */}
-          <mesh castShadow>
+          <mesh 
+            castShadow 
+            name="roofLeft"
+            onClick={(e) => handleRoofClick(e, 'left')}
+          >
             <primitive object={roofParts.left} attach="geometry" />
             <meshStandardMaterial color="#C35A38" side={THREE.DoubleSide} />
           </mesh>
           
           {/* Right side */}
-          <mesh castShadow>
+          <mesh 
+            castShadow 
+            name="roofRight"
+            onClick={(e) => handleRoofClick(e, 'right')}
+          >
             <primitive object={roofParts.right} attach="geometry" />
             <meshStandardMaterial color="#C35A38" side={THREE.DoubleSide} />
           </mesh>
