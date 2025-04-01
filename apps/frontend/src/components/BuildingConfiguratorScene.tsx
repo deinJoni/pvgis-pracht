@@ -20,7 +20,7 @@ const defaultConfig: BuildingConfig = {
   wings: [], 
   chimneys: [
     {
-      position: [2, 5, 1.5], // Position relative to base origin (bottom-front-left corner)
+      position: [3, 6.5, 5.5], // [x=2m from left edge, y=5m up from ground, z=1.5m from front edge]
       width: 0.8,
       depth: 0.8,
       height: 1.5
