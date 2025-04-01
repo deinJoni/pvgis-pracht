@@ -1,5 +1,4 @@
 import { useRef, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Html } from '@react-three/drei'
 
@@ -92,14 +91,6 @@ export default function Building({
       right: rightGeometry
     }
   }, [width, depth, roofHeight, roofAngle])
-  
-  // Update building on frame
-  useFrame(() => {
-    if (buildingRef.current) {
-      // Center the building at the origin
-      buildingRef.current.position.set(-width / 2, 0, -depth / 2)
-    }
-  })
 
   return (
     <group ref={buildingRef}>

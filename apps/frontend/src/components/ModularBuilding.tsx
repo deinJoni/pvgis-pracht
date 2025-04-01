@@ -1,200 +1,212 @@
-import { useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
-import * as THREE from 'three'
-import Building from './Building'
-import { Html } from '@react-three/drei'
+import React, { useRef, Dispatch, SetStateAction, useEffect } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+import Building from './Building'; // Assuming this path is correct
 
-// Define types for building configuration
-interface BuildingPart {
-  width: number
-  depth: number
-  height: number
-  roofAngle: number
+// --- Interfaces (Copied for self-containment) --- 
+interface BuildingPart { width: number; depth: number; height: number; roofAngle: number; }
+interface WingConfig extends BuildingPart { position: [number, number, number]; }
+interface ChimneyConfig { position: [number, number, number]; width: number; depth: number; height: number; }
+interface DormerConfig { position: [number, number, number]; width: number; depth: number; height: number; }
+// Export BuildingConfig so it can be imported by the scene
+export interface BuildingConfig { base: BuildingPart; wings?: WingConfig[]; chimneys?: ChimneyConfig[]; dormers?: DormerConfig[]; }
+
+// Define props type for child components (Chimney, Dormer)
+interface ChildComponentProps {
+  config: ChimneyConfig | DormerConfig;
+  index: number;
+  setSelectedObject: Dispatch<SetStateAction<THREE.Object3D | null>>;
+  selectedObject: THREE.Object3D | null;
 }
 
-interface WingConfig extends BuildingPart {
-  position: [number, number, number]
-}
+// --- Updatable Child Components ---
 
-interface ChimneyConfig {
-  position: [number, number, number]
-  width: number
-  depth: number
-  height: number
-}
+// Chimney Component with selection logic and highlighting
+function Chimney({ config, index, setSelectedObject, selectedObject }: ChildComponentProps & { config: ChimneyConfig }) {
+  const meshRef = useRef<THREE.Mesh>(null!);
+  const { position, width, depth, height } = config;
+  const originalColor = '#8B4513';
+  const highlightColor = '#BC8F8F'; // A lighter brown/rosy brown
 
-interface DormerConfig {
-  position: [number, number, number]
-  width: number
-  depth: number
-  height: number
-}
+  // Effect to handle highlighting
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const material = mesh.material as THREE.MeshStandardMaterial;
+    if (!(material instanceof THREE.MeshStandardMaterial)) return;
 
-export interface BuildingConfig {
-  base: BuildingPart
-  wings?: WingConfig[]
-  chimneys?: ChimneyConfig[]
-  dormers?: DormerConfig[]
-}
+    if (selectedObject === mesh) {
+      material.color.set(highlightColor);
+      material.emissive.set(highlightColor); // Add slight emission for better visibility
+      material.emissiveIntensity = 0.3;
+    } else {
+      material.color.set(originalColor);
+      material.emissive.set(originalColor); // Reset emission
+      material.emissiveIntensity = 0; 
+    }
 
-// Custom version of Building without labels
-function BuildingWithoutLabels({ width, depth, height, roofAngle }: BuildingPart) {
-  // Create a ref to the Building component
-  const buildingRef = useRef<THREE.Group>(null)
+    // Cleanup function to reset color if component unmounts while selected
+    return () => {
+      if (material instanceof THREE.MeshStandardMaterial) {
+        material.color.set(originalColor);
+        material.emissive.set(originalColor);
+        material.emissiveIntensity = 0;
+      }
+    };
+
+  }, [selectedObject]); // Rerun effect when selectedObject changes
+
+  const handleClick = (event: any) => {
+    event.stopPropagation();
+    if (meshRef.current) {
+      meshRef.current.userData = { type: 'chimney', index };
+      setSelectedObject(meshRef.current);
+    }
+  };
 
   return (
-    <group ref={buildingRef}>
-      {/* Building body */}
-      <mesh position={[width / 2, height / 2, depth / 2]} castShadow receiveShadow>
+    <mesh 
+      ref={meshRef}
+      position={position} 
+      onClick={handleClick}
+    >
+      <boxGeometry args={[width, height, depth]} /> 
+      <meshStandardMaterial color={originalColor} name="chimneyMaterial" />
+    </mesh>
+  );
+}
+
+// Dormer Component with selection logic and highlighting
+function Dormer({ config, index, setSelectedObject, selectedObject }: ChildComponentProps & { config: DormerConfig }) {
+  const groupRef = useRef<THREE.Group>(null!);
+  const { position, width, depth, height } = config;
+  const originalBoxColor = '#E8E8E8';
+  const originalRoofColor = '#C35A38';
+  const highlightColor = '#FFFFFF'; // Bright white highlight
+
+  // Effect to handle highlighting
+  useEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+
+    const isSelected = selectedObject === group;
+
+    group.children.forEach(child => {
+      if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+        const material = child.material as THREE.MeshStandardMaterial;
+        const originalColor = child.name === 'dormerRoof' ? originalRoofColor : originalBoxColor;
+        
+        if (isSelected) {
+          material.color.set(highlightColor);
+          material.emissive.set(highlightColor);
+          material.emissiveIntensity = 0.4;
+        } else {
+          material.color.set(originalColor);
+          material.emissive.set(originalColor);
+          material.emissiveIntensity = 0;
+        }
+      }
+    });
+
+    // Cleanup function
+    return () => {
+      group.children.forEach(child => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+          const material = child.material as THREE.MeshStandardMaterial;
+          const originalColor = child.name === 'dormerRoof' ? originalRoofColor : originalBoxColor;
+          material.color.set(originalColor);
+          material.emissive.set(originalColor);
+          material.emissiveIntensity = 0;
+        }
+      });
+    };
+
+  }, [selectedObject]); // Rerun effect when selectedObject changes
+
+  const handleClick = (event: any) => {
+    event.stopPropagation();
+    if (groupRef.current) {
+      groupRef.current.userData = { type: 'dormer', index };
+      setSelectedObject(groupRef.current);
+    }
+  };
+
+  return (
+    <group 
+      ref={groupRef}
+      position={position} 
+      onClick={handleClick}
+    >
+      {/* Main box */}
+      <mesh position={[0, height / 2, 0]} name="dormerBox"> 
         <boxGeometry args={[width, height, depth]} />
-        <meshStandardMaterial color="#F5F5F5" />
+        <meshStandardMaterial color={originalBoxColor} />
       </mesh>
-      
-      {/* Use the existing Building component but hide its labels */}
-      <group position={[0, 0, 0]} visible={false}>
-        <Building 
-          width={width}
-          depth={depth}
-          height={height}
-          roofAngle={roofAngle}
-        />
-      </group>
+      {/* Simple roof plane */}
+      <mesh position={[0, height + 0.1, 0]} name="dormerRoof"> 
+         <boxGeometry args={[width, 0.2, depth]} />
+         <meshStandardMaterial color={originalRoofColor} />
+       </mesh>
     </group>
   );
 }
 
-export default function ModularBuilding({ config }: { config: BuildingConfig }) {
-  const groupRef = useRef<THREE.Group>(null)
+// --- ModularBuilding Component --- 
+interface ModularBuildingProps {
+  config: BuildingConfig;
+  setSelectedObject: Dispatch<SetStateAction<THREE.Object3D | null>>;
+  selectedObject: THREE.Object3D | null;
+}
 
-  // Position the entire building so it's centered on the origin
-  useFrame(() => {
-    if (groupRef.current) {
-      groupRef.current.position.set(
-        -config.base.width / 2,
-        0,
-        -config.base.depth / 2
-      )
-    }
-  })
-
-  // Helper for dimension labels
-  const DimensionLabel = ({ position, text }: { position: [number, number, number], text: string }) => {
-    return (
-      <Html position={position} center>
-        <div className="label" style={{ 
-          color: 'black', 
-          backgroundColor: 'white', 
-          padding: '2px 6px', 
-          borderRadius: '4px',
-          fontSize: '10px',
-          fontWeight: 'bold',
-          border: '1px solid #aaa',
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-          opacity: 0.9
-        }}>
-          {text}
-        </div>
-      </Html>
-    )
-  }
-
-  // Render a chimney component
-  const Chimney = ({ config }: { config: ChimneyConfig }) => {
-    const { position, width, depth, height } = config
-    return (
-      <mesh position={position} castShadow receiveShadow>
-        <boxGeometry args={[width, height, depth]} />
-        <meshStandardMaterial color="#8B4513" />
-      </mesh>
-    )
-  }
-
-  // Render a dormer component
-  const Dormer = ({ config }: { config: DormerConfig }) => {
-    const { position, width, depth, height } = config
-    return (
-      <group position={position}>
-        {/* Dormer body */}
-        <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
-          <boxGeometry args={[width, height, depth]} />
-          <meshStandardMaterial color="#F5F5F5" />
-        </mesh>
-        
-        {/* Dormer roof */}
-        <mesh position={[0, height, 0]} castShadow>
-          <coneGeometry args={[width / 2, height / 2, 4, 1, false]} />
-          <meshStandardMaterial color="#C35A38" />
-        </mesh>
-      </group>
-    )
-  }
+export default function ModularBuilding({
+  config,
+  setSelectedObject,
+  selectedObject
+}: ModularBuildingProps) {
+  // Calculate initial position once
+  const initialPosition: [number, number, number] = [
+    -config.base.width / 2,
+    0,
+    -config.base.depth / 2
+  ];
 
   return (
-    <group ref={groupRef}>
-      {/* Main building base - hide default labels */}
-      <Building 
+    // Set position directly on the group
+    <group position={initialPosition}>
+      {/* Base Building */}
+      <Building
         width={config.base.width}
         depth={config.base.depth}
         height={config.base.height}
         roofAngle={config.base.roofAngle}
-        hideLabels={true}
+        hideLabels={true} // Hide internal labels from Building component
       />
-      
-      {/* Main building labels - Only essential ones */}
-      <DimensionLabel 
-        position={[config.base.width / 2, -0.2, config.base.depth / 2]}
-        text={`Width: ${config.base.width}m`}
-      />
-      <DimensionLabel 
-        position={[config.base.width + 0.5, config.base.height / 2, config.base.depth / 2]}
-        text={`Depth: ${config.base.depth}m`}
-      />
-      <DimensionLabel 
-        position={[config.base.width / 2, config.base.height + 0.5, config.base.depth / 2]}
-        text={`Height: ${config.base.height}m`}
-      />
-      <DimensionLabel 
-        position={[config.base.width / 2, config.base.height * 1.3, config.base.depth / 2]}
-        text={`Roof: ${config.base.roofAngle}°`}
-      />
-      
-      {/* Additional wings */}
-      {config.wings?.map((wing, index) => {
-        return (
-          <group key={`wing-${index}`}>
-            <group position={wing.position}>
-              <Building
-                width={wing.width}
-                depth={wing.depth}
-                height={wing.height}
-                roofAngle={wing.roofAngle}
-                hideLabels={true}
-              />
-              
-              {/* Only one label for wing dimensions */}
-              <DimensionLabel 
-                position={[wing.width / 2, -0.2, wing.depth / 2]}
-                text={`${wing.width}m × ${wing.depth}m`}
-              />
-              <DimensionLabel 
-                position={[wing.width / 2, wing.height * 1.3, wing.depth / 2]}
-                text={`Roof: ${wing.roofAngle}°`}
-              />
-            </group>
-          </group>
-        );
-      })}
-      
-      {/* Chimneys - no labels for chimneys */}
-      {config.chimneys?.map((chimney, index) => (
-        <Chimney key={`chimney-${index}`} config={chimney} />
+
+      {/* Render Chimneys with props for selection */}
+      {config.chimneys?.map((chimneyConf, index) => (
+        <Chimney 
+          key={`chimney-${index}`} 
+          config={chimneyConf} 
+          index={index} 
+          setSelectedObject={setSelectedObject} 
+          selectedObject={selectedObject}
+        />
       ))}
-      
-      {/* Dormers - no labels for dormers */}
-      {config.dormers?.map((dormer, index) => (
-        <Dormer key={`dormer-${index}`} config={dormer} />
+
+      {/* Render Dormers with props for selection */}
+      {config.dormers?.map((dormerConf, index) => (
+        <Dormer 
+          key={`dormer-${index}`} 
+          config={dormerConf} 
+          index={index} 
+          setSelectedObject={setSelectedObject} 
+          selectedObject={selectedObject}
+        />
       ))}
+
+      {/* Wings would be rendered here in future steps */}
+      {/* {config.wings?.map((wingConf, index) => { ... })} */}
+
     </group>
-  )
-} 
+  );
+}

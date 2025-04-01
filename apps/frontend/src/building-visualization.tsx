@@ -24,23 +24,21 @@ export default function BuildingVisualization() {
         </button>
       </div>
       
-      {showModular ? (
-        <>
-          <p className="mb-4">
-            The modular building system supports a main building with additional wings, 
-            chimneys, and dormers based on a configuration object.
-          </p>
-          <BuildingConfiguratorScene />
-        </>
-      ) : (
-        <>
-          <p className="mb-4">
-            Adjust the building dimensions using the controls below the 3D model. 
-            The building will update in real-time.
-          </p>
-          <ThreeScene />
-        </>
-      )}
+      <div style={{ display: showModular ? 'block' : 'none' }}>
+        <p className="mb-4">
+          The modular building system supports a main building with additional wings, 
+          chimneys, and dormers based on a configuration object.
+        </p>
+        <BuildingConfiguratorScene />
+      </div>
+
+      <div style={{ display: !showModular ? 'block' : 'none' }}>
+        <p className="mb-4">
+          Adjust the building dimensions using the controls below the 3D model. 
+          The building will update in real-time.
+        </p>
+        <ThreeScene />
+      </div>
     </div>
   )
 } 
