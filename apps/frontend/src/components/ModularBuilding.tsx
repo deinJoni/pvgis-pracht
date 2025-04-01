@@ -7,14 +7,19 @@ import { ThreeEvent } from '@react-three/fiber';
 // --- Interfaces (Copied for self-containment) --- 
 interface BuildingPart { width: number; depth: number; height: number; roofAngle: number; }
 interface WingConfig extends BuildingPart { position: [number, number, number]; }
-interface ChimneyConfig { position: [number, number, number]; width: number; depth: number; height: number; }
-interface DormerConfig { position: [number, number, number]; width: number; depth: number; height: number; }
-interface PVTileConfig { 
+export interface ChimneyConfig { position: [number, number, number]; width: number; depth: number; height: number; }
+export interface DormerConfig { position: [number, number, number]; width: number; depth: number; height: number; }
+
+// Export PVTileConfig
+export interface PVTileConfig { 
   position: [number, number, number]; 
   rotation: [number, number, number];
   roofFace: 'front' | 'back' | 'left' | 'right';
   width: number;
   depth: number;
+  placementX: number; // X coord relative to building origin at placement
+  placementZ: number; // Z coord relative to building origin at placement
+  orientation: 0 | 90; // Add orientation property (0 = portrait, 90 = landscape)
 }
 
 // Export BuildingConfig so it can be imported by the scene
@@ -174,13 +179,17 @@ function PVTile({ config, index, setSelectedObject, isSelected, onClick }: {
   isSelected?: boolean;
   onClick?: (index: number) => void;
 }) {
-  const { position, rotation, width, depth } = config;
+  const { position, rotation, width, depth, orientation } = config;
   const originalColor = new THREE.Color(0x2196f3); // Blue color for solar panels
   const highlightColor = new THREE.Color(0x64b5f6); // Lighter blue when selected
   
   // Use refs for the mesh
   const meshRef = useRef<THREE.Mesh>(null);
   
+  // Determine actual dimensions based on orientation
+  const actualWidth = orientation === 0 ? width : depth;
+  const actualDepth = orientation === 0 ? depth : width;
+
   // Set userData when mesh is created
   useEffect(() => {
     if (meshRef.current) {
@@ -204,7 +213,7 @@ function PVTile({ config, index, setSelectedObject, isSelected, onClick }: {
       rotation={new THREE.Euler(rotation[0], rotation[1], rotation[2])}
       onClick={handleClick}
     >
-      <boxGeometry args={[width, 0.02, depth]} />
+      <boxGeometry args={[actualWidth, 0.02, actualDepth]} />
       <meshStandardMaterial 
         color={isSelected ? highlightColor : originalColor} 
         side={THREE.DoubleSide}
